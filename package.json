@@ -1,0 +1,93 @@
+{
+  "name": "git-copilot",
+  "displayName": "Git Copilot",
+  "description": "AI-powered Git assistant with safety-gated command execution and commit graph visualization",
+  "version": "0.1.0",
+  "publisher": "git-copilot",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "SCM Providers"],
+  "activationEvents": ["workspaceContains:.git"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "gitCopilot.openChat", "title": "Git Copilot: Open Chat" },
+      { "command": "gitCopilot.openGraph", "title": "Git Copilot: Open Commit Graph" },
+      { "command": "gitCopilot.refreshRepo", "title": "Git Copilot: Refresh Repository State" },
+      { "command": "gitCopilot.showAuditLog", "title": "Git Copilot: Show Audit Log" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "gitCopilot", "title": "Git Copilot", "icon": "resources/icons/git-copilot.svg" }
+      ]
+    },
+    "views": {
+      "gitCopilot": [
+        { "type": "webview", "id": "gitCopilot.chatView", "name": "Chat" }
+      ]
+    },
+    "configuration": {
+      "title": "Git Copilot",
+      "properties": {
+        "gitCopilot.llm.model": {
+          "type": "string",
+          "default": "claude-sonnet-4-5",
+          "description": "Claude model to use"
+        },
+        "gitCopilot.llm.maxTokens": {
+          "type": "number",
+          "default": 4096,
+          "description": "Maximum output tokens per LLM call"
+        },
+        "gitCopilot.executor.timeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Git command execution timeout in milliseconds"
+        },
+        "gitCopilot.executor.approvalExpiryMs": {
+          "type": "number",
+          "default": 60000,
+          "description": "Milliseconds before an approval expires"
+        },
+        "gitCopilot.repo.commitLogDepth": {
+          "type": "number",
+          "default": 100,
+          "description": "Number of commits to fetch for graph and context"
+        },
+        "gitCopilot.telemetry.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable opt-in usage telemetry"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:prod",
+    "build": "node esbuild.config.js",
+    "build:prod": "node esbuild.config.js --production",
+    "watch": "node esbuild.config.js --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "isomorphic-git": "^1.25.0",
+    "@isomorphic-git/lightning-fs": "^4.6.0",
+    "simple-git": "^3.26.0",
+    "zod": "^3.23.0",
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.21.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
