@@ -113,7 +113,8 @@ export class ApprovalGate {
     const now = new Date();
     for (const [id, request] of this.store.entries()) {
       if (new Date(request.expiresAt) < now && request.decision === "pending") {
-        request.decision = "pending"; // stays pending but is effectively expired
+        // Fire expired event before removing so listeners can clean up UI
+        bus.emit("approval.expired", request);
         this.store.delete(id);
       }
     }

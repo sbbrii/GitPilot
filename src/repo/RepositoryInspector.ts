@@ -220,7 +220,20 @@ export class RepositoryInspector {
     const parsedStatus = parseStatusPorcelain(statusResult.stdout);
     const branches = parseBranchVV(branchResult.stdout);
     const remotes = parseRemoteV(remoteResult.stdout);
-    const stash = parseStashList(stashResult.stdout);
+    const rawStash = parseStashList(stashResult.stdout);
+
+    // Populate SHA for each stash entry via rev-parse (runs in parallel)
+    const stash = await Promise.all(
+      rawStash.map(async (entry) => {
+        const ref = `stash@{${entry.index}}`;
+        const shaResult = await spawnGit(
+          ["rev-parse", ref],
+          this.repoPath,
+          5_000,
+        ).catch(() => ({ stdout: "" }));
+        return { ...entry, sha: shaResult.stdout.trim().slice(0, 40) };
+      }),
+    );
 
     // Build branch/tag → SHA lookup for commit log decoration
     const branchLabelMap = new Map<string, string[]>();

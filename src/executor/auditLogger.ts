@@ -1,7 +1,7 @@
 // ─── Audit Logger ─────────────────────────────────────────────────────────────
 // Persists execution audit trail to VS Code workspace state (survives sessions).
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "crypto";  
 import * as vscode from "vscode";
 import { logger } from "../core/logger";
 import type { AuditEntry, ExecutionResult } from "./types";
@@ -43,7 +43,7 @@ export class AuditLogger {
     return this.storage.get<AuditEntry[]>(STORAGE_KEY, []);
   }
 
-  clear(): Promise<void> {
-    return this.storage.update(STORAGE_KEY, []);
+  async clear(): Promise<void> {
+    await this.storage.update(STORAGE_KEY, []);
   }
 }

@@ -85,6 +85,7 @@ export class CommandExecutor {
 
     // Gate 5: Execute
     const startTime = Date.now();
+    let endTime = startTime;
     log.info("Executing git command", { args: op.command.args, operationId: op.id });
     bus.emit("command.started", { operationId: op.id, command: ["git", ...op.command.args] });
 
@@ -106,7 +107,7 @@ export class CommandExecutor {
       exitCode = result.exitCode;
     } catch (e) {
       if (e instanceof GitCommandTimedOutError) timedOut = true;
-      const endTime = Date.now();
+      endTime = Date.now();
       const error: ExecutionError = {
         operationId: op.id,
         error: e instanceof Error ? e.message : String(e),
@@ -123,7 +124,7 @@ export class CommandExecutor {
       throw e;
     }
 
-    const endTime = Date.now();
+    endTime = Date.now();
     const success = exitCode === 0;
 
     const executionResult: ExecutionResult = {
@@ -172,7 +173,7 @@ export class CommandExecutor {
       let timedOut = false;
       const proc = cp.spawn("git", op.command.args as string[], {
         cwd: op.command.cwd,
-        env: safeGitEnv(op.command.env as Record<string, string> ?? {}),
+        env: safeGitEnv(op.command.env != null ? (op.command.env as Record<string, string>) : {}),
         shell: false, // ← ABSOLUTE invariant, never change
       });
 

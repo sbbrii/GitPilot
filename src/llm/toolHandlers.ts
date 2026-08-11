@@ -12,7 +12,7 @@ import { logger } from "../core/logger";
 import type { RepositoryInspector } from "../repo/RepositoryInspector";
 import type { SafetyChecker } from "../safety/SafetyChecker";
 import type { CommandExecutor } from "../executor/CommandExecutor";
-import type { ApprovalGate } from "../executor/ApprovalGate";
+import type { ApprovalGate } from "../executor/approvalGate";
 import type { GraphDataBuilder } from "../graph/GraphDataBuilder";
 import type { PlannedOperation } from "../planner/types";
 

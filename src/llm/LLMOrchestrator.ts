@@ -1,6 +1,6 @@
 // ─── LLM Orchestrator ─────────────────────────────────────────────────────────
 // Manages the multi-turn conversation with Claude, handles tool-calling loops,
-// and streams responses to the chat panel via the event bus.
+// and streams real response tokens to the chat panel via the event bus.
 
 import Anthropic from "@anthropic-ai/sdk";
 import * as vscode from "vscode";
@@ -39,8 +39,8 @@ export class LLMOrchestrator {
   }
 
   /**
-   * Process a user message through the tool-calling loop.
-   * Streams response tokens to the event bus as they arrive.
+   * Process a user message through the streaming tool-calling loop.
+   * Text tokens are emitted to the bus in real-time as they arrive from the API.
    */
   async chat(userMessage: string): Promise<void> {
     const client = await this.getClient().catch((e) => {
@@ -57,7 +57,7 @@ export class LLMOrchestrator {
       timestamp: new Date().toISOString(),
     });
 
-    // Trim history to budget
+    // Trim history to context budget
     if (this.history.length > MAX_HISTORY_MESSAGES) {
       this.history = this.history.slice(-MAX_HISTORY_MESSAGES);
     }
@@ -70,53 +70,55 @@ export class LLMOrchestrator {
     let toolCallCount = 0;
     let assistantResponse = "";
 
-    // Tool-calling loop
+    // Tool-calling loop — each iteration may produce tool calls which continue the loop
     while (true) {
       if (toolCallCount >= MAX_TOOL_CALLS_PER_TURN) {
         bus.emit("llm.error", new LLMError("Tool call limit reached. Turn aborted."));
         break;
       }
 
+      // ── Streaming API call ──────────────────────────────────────────────────
       let response: Anthropic.Message;
       try {
-        response = await client.messages.create({
+        const stream = client.messages.stream({
           model: config.llmModel,
           max_tokens: config.llmMaxTokens,
           system: SYSTEM_PROMPT,
           tools: TOOL_DEFINITIONS,
           messages,
         });
+
+        // Emit real streaming tokens as they arrive
+        let iterationText = "";
+        stream.on("text", (textDelta) => {
+          iterationText += textDelta;
+          assistantResponse += textDelta;
+          bus.emit("llm.stream.token", textDelta);
+        });
+
+        response = await stream.finalMessage();
       } catch (e) {
-        const err = new LLMError(`Anthropic API error: ${e instanceof Error ? e.message : String(e)}`, e);
+        const err = new LLMError(
+          `Anthropic API error: ${e instanceof Error ? e.message : String(e)}`,
+          e,
+        );
         log.error("LLM API call failed", err);
         bus.emit("llm.error", err);
         throw err;
       }
 
-      // Process response content blocks
-      for (const block of response.content) {
-        if (block.type === "text") {
-          // Stream text tokens word-by-word for UX responsiveness
-          for (const word of block.text.split(" ")) {
-            bus.emit("llm.stream.token", word + " ");
-            await tick(); // yield to event loop between chunks
-          }
-          assistantResponse += block.text;
-        }
-      }
-
-      // If stop_reason is end_turn or max_tokens, we're done
+      // If stop_reason is end_turn or max_tokens, we're done with this turn
       if (response.stop_reason === "end_turn" || response.stop_reason === "max_tokens") {
         break;
       }
 
-      // Handle tool_use blocks
+      // ── Handle tool_use blocks ─────────────────────────────────────────────
       if (response.stop_reason === "tool_use") {
         const toolUseBlocks = response.content.filter(
           (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
         );
 
-        // Add assistant message with tool use to conversation
+        // Add the full assistant message (including tool_use blocks) to conversation
         messages.push({ role: "assistant", content: response.content });
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
@@ -154,18 +156,19 @@ export class LLMOrchestrator {
           }
         }
 
-        // Add tool results as user message and continue loop
+        // Add tool results as a user message and continue the loop
         messages.push({ role: "user", content: toolResults });
         continue;
       }
 
-      // Any other stop reason — exit loop
+      // Any other unexpected stop reason — exit loop defensively
+      log.warn("Unexpected stop_reason", { stop_reason: response.stop_reason });
       break;
     }
 
     bus.emit("llm.stream.done");
 
-    // Record assistant response in history
+    // Record assistant turn in conversation history
     if (assistantResponse) {
       this.history.push({
         role: "assistant",
@@ -174,7 +177,7 @@ export class LLMOrchestrator {
       });
     }
 
-    log.info("Chat turn complete", { toolCallCount });
+    log.info("Chat turn complete", { toolCallCount, responseLength: assistantResponse.length });
   }
 
   clearHistory(): void {
@@ -184,9 +187,4 @@ export class LLMOrchestrator {
   getHistory(): ConversationMessage[] {
     return [...this.history];
   }
-}
-
-/** Yield to the Node.js event loop to allow other async work to proceed. */
-function tick(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
 }

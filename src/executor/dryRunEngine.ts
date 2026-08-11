@@ -168,7 +168,7 @@ async function pullDryRun(op: PlannedOperation, commandDisplay: string): Promise
   const fetchArgs = ["fetch", "--dry-run"];
   const remote = op.command.args.find((a) => !a.startsWith("-")) ?? "origin";
   fetchArgs.push(remote);
-  const result = await spawnGit(fetchArgs, op.command.cwd, 20_000).catch(() => ({ stdout: "" }));
+  const result = await spawnGit(fetchArgs, op.command.cwd, 20_000).catch(() => ({ stdout: "", stderr: "", exitCode: 1 }));
   const incoming = await spawnGit(["log", "HEAD..@{u}", "--oneline"], op.command.cwd, 5_000).catch(() => ({ stdout: "" }));
   return {
     operationId: op.id,

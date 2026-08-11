@@ -26,7 +26,8 @@ export class GraphDataBuilder {
       branchColors[branch.name] = getLaneColor(lane);
     }
 
-    const laneCount = Math.max(...Array.from(laneMap.values())) + 1;
+    const laneValues = Array.from(laneMap.values());
+    const laneCount = laneValues.length > 0 ? Math.max(...laneValues) + 1 : 1;
 
     const nodes: GraphNode[] = commits.map((commit, y) => ({
       sha: commit.sha,
